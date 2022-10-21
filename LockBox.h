@@ -2,21 +2,26 @@
 #define LOCKBOX
 
 #include <iostream>
+#include <fstream>
 #include <filesystem>
 #include <algorithm>
-#include <string.h>
+#include <vector>
+#include <string>
 
 namespace fs = std::filesystem;
 
 class LockBox {
     private:
-        char *file_path;
+        std::string file_path;
         void initialize(void);
+        void set_password(std::string&);
     
     public:
-        LockBox(char*);
-        int encrypt(char*);
-        int decrypt(char*,char*);
+        LockBox();
+        bool set_file(const std::string &);
+        int encrypt(std::string&);
+        int decrypt(std::string&);
+        void showHelp();
 };
 
 

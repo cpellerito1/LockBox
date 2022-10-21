@@ -1,45 +1,58 @@
 #include "LockBox.h"
 
 int main(int argc, char *argv[]) {
-    // End of input array
-    char** END = argv + argc;
-    
-    if (argc <= 1) {
-        std::cout << "Error: please include a file and setting" << std::endl;
+    if (argc <= 2) {
+        std::cout << "Error: please include a file and setting\nUse --help for more information" << std::endl;
         return -1;
     }
 
-    // Get file path
-    char *file_path;
-    auto f = std::find(argv, END, "-f");
-    if (f != END && f + 1 != END) {
-        file_path = *f + 1;
-    } else {
+    // Initialize LockBox class
+    LockBox lb;
+    // Iterate through the input array
+    std::string file_path;
+    bool path = false;
+    std::string password;
+    bool pwd = false;
+    int setting = -1;
+    for (int i = 0; i < argc; i++) {
+        std::string current(argv[i]);
+        if (current == "-f" && i + 1 < argc) {
+            path = true;
+            file_path = std::string(argv[i + 1]);
+        } else if (current == "-p" && i + 1 < argc) {
+            pwd = true;
+            password = std::string(argv[i + 1]);
+        } else if (current == "-e")
+            setting = 1;
+        else if (current == "-d")
+            setting = 2;
+        else if (current == "--help")
+            lb.showHelp();
+        
+    }
+
+    if (path == false) {
         std::cout << "Error: please include the path to the file" << std::endl;
         return -1;
     }
-
-    // Get the setting, either -e for encrypt or -d for decrypt
-    auto e = std::find(argv, END, "-e");
-    auto d = std::find(argv, END, "-d");
-    int setting;
-    if (e != END && d == END) {
-        setting = 0;
-    } else if (e == END && d != END) {
-        setting = 1;
-    } else if (e != END && d != END) {
-        std::cout << "Error: please only include one option, either -e for ecrypt or -d decrypt" << std::endl;
-        return -1;
-    } else if (e == END && d == END) {
+    
+    if (setting == -1) {
         std::cout << "Error: please include a setting, -e for encrypt or -d for decrypt" << std::endl;
         return -1;
     }
 
-    // LockBox lb(file_path);
-    // // Run the encryption/decryption
+    // Run the encryption/decryption
+    if (!lb.set_file(file_path)) {
+        std::cout << "Error: unable to open file please try again" << std::endl;
+        return -1;
+    }
+
     // switch (setting) {
     //     case 1:
-    //         lb.encrypt();
+    //         lb.encrypt(password);
+    //         break;
+    //     case 2:
+    //         lb.decrypt(password);
     // }
 
 
