@@ -7,20 +7,22 @@
 #include <algorithm>
 #include <vector>
 #include <string>
+#include <functional>
 
 namespace fs = std::filesystem;
 
 class LockBox {
     private:
         std::string file_path;
+        int convert_password(const std::string&);
+        std::string get_name(void);
         void initialize(void);
-        void set_password(std::string&);
     
     public:
         LockBox();
         bool set_file(const std::string &);
-        int encrypt(std::string&);
-        int decrypt(std::string&);
+        void encrypt(const std::string&);
+        void decrypt(const std::string&);
         void showHelp();
 };
 

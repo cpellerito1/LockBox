@@ -30,16 +30,22 @@ int main(int argc, char *argv[]) {
             lb.showHelp();
         
     }
-
+    // Error checking
+    bool errors = false;
     if (path == false) {
         std::cout << "Error: please include the path to the file" << std::endl;
-        return -1;
+        errors = true;
     }
-    
     if (setting == -1) {
         std::cout << "Error: please include a setting, -e for encrypt or -d for decrypt" << std::endl;
-        return -1;
+        errors = true;
     }
+    if (pwd == false) {
+        std::cout << "Error: please include a password to encrypt/decrypt file" << std::endl;
+        errors = true;
+    }
+    if (errors == true)
+        return -1;
 
     // Run the encryption/decryption
     if (!lb.set_file(file_path)) {
@@ -47,13 +53,14 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    // switch (setting) {
-    //     case 1:
-    //         lb.encrypt(password);
-    //         break;
+
+    switch (setting) {
+        case 1:
+            lb.encrypt(password);
+            break;
     //     case 2:
     //         lb.decrypt(password);
-    // }
+     }
 
 
 
