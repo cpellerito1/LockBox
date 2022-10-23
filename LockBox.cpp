@@ -5,22 +5,22 @@ LockBox::LockBox() {
 }
 
 
+void LockBox::set_password(const std::string &pwd) {
+    int password = 0;
+    for (auto c: pwd)
+        password += c;
+
+    key = password;
+}
+
+
 bool LockBox::set_file(const std::string &fp) {
-    std::cout << "file: " << fp << std::endl; 
     std::ifstream f(fp);
     if (f.good()) {
         file_path = fp;
         return true;
     } else 
         return false;
-}
-
-
-int LockBox::convert_password(const std::string &pwd) {
-    int password = 0;
-    for (auto c: pwd)
-        password += c;
-    return password;
 }
 
 
@@ -48,31 +48,20 @@ void LockBox::showHelp() {
 
 
 std::string LockBox::get_name() {
-    // Get iterator pointing to the . in the file extension
-    std::cout << "File path: " << file_path << std::endl;
-    auto itr = std::find(file_path.begin(), file_path.end(), '.');
-    for (;itr != file_path.begin(); itr--) {
-        std::cout << "itr: " << *itr << std::endl;
+    std::string::reverse_iterator ritr = file_path.rbegin();
+    std::string file_name;
+    while (*ritr != '/' && ritr != file_path.rend()) {
+        // Either just decrement and use the string construct to reverse or do what i did before
+        std::string temp(1, *ritr);
+        file_name += temp;
+        ritr++;
     }
-    if (itr != file_path.end()) {
-        while (*(--itr) != '/' || itr == file_path.begin())
-            ;
-        if (itr != file_path.begin()) {
-            std::string s(file_path.begin() + (++itr - file_path.begin()), file_path.end()-1);
-            return s;
-        } else {
-            // This means the file was given with no path just the file name
-            return file_path;
-        }
-    }
-    return "error";
+    std::reverse(file_name.begin(), file_name.end());
+    return file_name;
 }
 
 
 void LockBox::encrypt(const std::string &password) {
-    // First convert string password to int representation
-    int key = convert_password(password);
-
     // Open the 3 files we will need, the file to be encrypted, the file to write that to,
     // and the pwd file in the data folder to store the hashed password and file name associated to it
     std::fstream fin(file_path, std::fstream::in), fout, pwd("./LockBox/data/pwd.txt", std::fstream::app);
@@ -102,4 +91,57 @@ void LockBox::encrypt(const std::string &password) {
     std::hash<std::string> hashed;
     pwd << "e_" + out_file << ":" << hashed(password) << "\n";
     pwd.close();
+}
+
+
+void LockBox::decrypt(const std::string &password) {
+    // First verify that the file-password matches an entry in the data file
+    std::fstream pwd("./LockBox/data/pwd.txt", std::fstream::in);
+    // Vector to store all the lines of the file
+    std::vector<std::string> data_file;
+    // String to hold the current line of the file
+    std::string line;
+    // Name of the file to look for
+    std::string file_name = get_name();
+    // Hash function to get the hashed version of the password which is what is actaully stored
+    std::hash<std::string> hashed;
+    std::cout << "Hashed password int: " << hashed(password) << std::endl;
+    std::cout << "hashed password string: " << std::to_string(hashed(password)) << std::endl;
+    // Flag for if the file-password exists
+    bool exists = false;
+    // Add all contents to vector
+    while (getline(pwd, line)) {
+        if (line.substr(file_name.size() + 1) == std::to_string(hashed(password))) {
+            exists = true;
+            continue;
+        }
+        data_file.push_back(line);
+    }
+
+    if (exists == false) {
+        std::cout << "Error: invalid password" << std::endl;
+        return;
+    }
+
+    // Close the pwd file
+    pwd.close();
+    // Now re-open it to overwrite all of the contents to remove the file-password entry
+    std::fstream pwd1("./LockBox/data/pwd.txt", std::fstream::trunc);
+    for (auto l: data_file)
+        pwd1 << l;
+    // Close it again
+    pwd1.close();
+    // After verifying the password, the encrypted file and the new file it will be written to need to be opened.
+    std::fstream fin(file_path, std::fstream::in), fout("./LockBox/files/" + file_name, std::fstream::out);
+    // Now go char by char and subtract the key from each char
+    char c;
+    while (fin >> std::noskipws >> c) {
+        int value = c - key;
+
+        // Write it to the outputfile 
+        fout << (char)value;
+    }
+    // Close the files
+    fin.close();
+    fout.close();
 }

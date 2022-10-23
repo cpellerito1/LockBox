@@ -58,12 +58,9 @@ int main(int argc, char *argv[]) {
         case 1:
             lb.encrypt(password);
             break;
-    //     case 2:
-    //         lb.decrypt(password);
+        case 2:
+            lb.decrypt(password);
      }
-
-
-
 
     return 0;
 
