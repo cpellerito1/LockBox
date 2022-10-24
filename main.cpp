@@ -6,8 +6,6 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    // Initialize LockBox class
-    LockBox lb;
     // Iterate through the input array
     std::string file_path;
     bool path = false;
@@ -27,7 +25,7 @@ int main(int argc, char *argv[]) {
         else if (current == "-d")
             setting = 2;
         else if (current == "--help")
-            lb.showHelp();
+            LockBox::show_help();
         
     }
     // Error checking
@@ -47,19 +45,19 @@ int main(int argc, char *argv[]) {
     if (errors == true)
         return -1;
 
+    // Initialize LockBox class
+    LockBox lb(file_path, password);
+
     // Run the encryption/decryption
-    if (!lb.set_file(file_path)) {
-        std::cout << "Error: unable to open file please try again" << std::endl;
-        return -1;
-    }
+
 
 
     switch (setting) {
         case 1:
-            lb.encrypt(password);
+            lb.encrypt();
             break;
         case 2:
-            lb.decrypt(password);
+            lb.decrypt();
      }
 
     return 0;

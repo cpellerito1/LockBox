@@ -1,26 +1,30 @@
 #include "LockBox.h"
 
-LockBox::LockBox() {
+LockBox::LockBox(const std::string &fp, const std::string &pwd) {
+    set_file(fp);
+    set_password(pwd);
     initialize();
 }
 
 
 void LockBox::set_password(const std::string &pwd) {
-    int password = 0;
-    for (auto c: pwd)
-        password += c;
-
-    key = password;
+    password = pwd;
+    key = std::accumulate(pwd.begin(), pwd.end(), 0);
 }
 
 
-bool LockBox::set_file(const std::string &fp) {
+void LockBox::set_file(const std::string &fp) {
     std::ifstream f(fp);
     if (f.good()) {
         file_path = fp;
-        return true;
-    } else 
-        return false;
+        file_name = get_name();
+        return;
+    } else {
+        std::cout << "Error: unable to open file please try again" << std::endl;
+        exit(-1);
+    }
+
+    
 }
 
 
@@ -38,7 +42,7 @@ void LockBox::initialize() {
 }
 
 
-void LockBox::showHelp() {
+void LockBox::show_help() {
     std::cout << "How to use LockBox:\n";
     std::cout << "Format = LockBox [options]\n";
     std::cout << "Options:\n-f 'path to file'\n-e to encrypt a file\n-d to decrypt a file\n";
@@ -48,37 +52,27 @@ void LockBox::showHelp() {
 
 
 std::string LockBox::get_name() {
-    std::string::reverse_iterator ritr = file_path.rbegin();
-    std::string file_name;
-    while (*ritr != '/' && ritr != file_path.rend()) {
-        // Either just decrement and use the string construct to reverse or do what i did before
-        std::string temp(1, *ritr);
-        file_name += temp;
-        ritr++;
+    // Isolate the file name from the file path
+    size_t index = file_path.find_last_of('/');
+    // If no / then the file path is just the file name
+    if (index == std::string::npos) {
+        return file_path;
+    } else {
+        return file_path.substr(++index);
     }
-    std::reverse(file_name.begin(), file_name.end());
-    return file_name;
 }
 
 
-void LockBox::encrypt(const std::string &password) {
+void LockBox::encrypt() {
     // Open the 3 files we will need, the file to be encrypted, the file to write that to,
     // and the pwd file in the data folder to store the hashed password and file name associated to it
-    std::fstream fin(file_path, std::fstream::in), fout, pwd("./LockBox/data/pwd.txt", std::fstream::app);
-    // Get the name of the file to be encrypted
-    std::string out_file = get_name();
-    std::cout << "out file: " << out_file << std::endl;
-    if (out_file == "error") {
-        std::cout << "Error: invalid file name" << std::endl;
-        return;
-    }
-    fout.open("./LockBox/files/e_" + out_file, std::fstream::out);
+    std::fstream fin(file_path, std::fstream::in), fout("./LockBox/files/e_" + file_name, std::fstream::out), 
+        pwd("./LockBox/data/pwd.txt", std::fstream::app);
 
     // Now go char by char and add the key to each char
     char c;
     while (fin >> std::noskipws >> c) {
         int value = (int)c + key;
-
         // Write it to the outputfile 
         fout << (char)value;
     }
@@ -86,30 +80,29 @@ void LockBox::encrypt(const std::string &password) {
     // Close fin and fout
     fin.close();
     fout.close();
+
     // Write the output file name and the password in the format of file:password(hashed)
     // First hash the password
     std::hash<std::string> hashed;
-    pwd << "e_" + out_file << ":" << hashed(password) << "\n";
+    pwd << "e_" + file_name << ":" << hashed(password) << "\n";
     pwd.close();
+
+    // End message
+    std::cout << "Congrats your file has been encrypted and can be found in LockBox/files" << std::endl;
 }
 
 
-void LockBox::decrypt(const std::string &password) {
+void LockBox::decrypt() {
     // First verify that the file-password matches an entry in the data file
     std::fstream pwd("./LockBox/data/pwd.txt", std::fstream::in);
-    // Vector to store all the lines of the file
+    // Vector to store all the lines of the file to re-write them to the password to remove current entry
     std::vector<std::string> data_file;
-    // String to hold the current line of the file
-    std::string line;
-    // Name of the file to look for
-    std::string file_name = get_name();
     // Hash function to get the hashed version of the password which is what is actaully stored
     std::hash<std::string> hashed;
-    std::cout << "Hashed password int: " << hashed(password) << std::endl;
-    std::cout << "hashed password string: " << std::to_string(hashed(password)) << std::endl;
     // Flag for if the file-password exists
     bool exists = false;
-    // Add all contents to vector
+    // String to hold the current line of the file
+    std::string line;
     while (getline(pwd, line)) {
         if (line.substr(file_name.size() + 1) == std::to_string(hashed(password))) {
             exists = true;
@@ -122,26 +115,34 @@ void LockBox::decrypt(const std::string &password) {
         std::cout << "Error: invalid password" << std::endl;
         return;
     }
-
-    // Close the pwd file
+    // Close pwd
     pwd.close();
+
     // Now re-open it to overwrite all of the contents to remove the file-password entry
-    std::fstream pwd1("./LockBox/data/pwd.txt", std::fstream::trunc);
+    std::fstream pwd1("./LockBox/data/pwd.txt", std::fstream::out);
     for (auto l: data_file)
         pwd1 << l;
+
     // Close it again
     pwd1.close();
+
     // After verifying the password, the encrypted file and the new file it will be written to need to be opened.
-    std::fstream fin(file_path, std::fstream::in), fout("./LockBox/files/" + file_name, std::fstream::out);
+    std::fstream fin(file_path, std::fstream::in), fout("./LockBox/files/" + file_name.substr(2), std::fstream::out);
     // Now go char by char and subtract the key from each char
     char c;
     while (fin >> std::noskipws >> c) {
         int value = c - key;
-
         // Write it to the outputfile 
         fout << (char)value;
     }
+
     // Close the files
     fin.close();
     fout.close();
+
+    // Remove the encrypted file
+    fs::remove(file_path);
+
+    // End message
+    std::cout << "Congrats, your file has been decrypted and can be found in LockBox/files" << std::endl;
 }
