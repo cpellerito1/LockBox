@@ -63,6 +63,53 @@ std::string LockBox::get_name() {
 }
 
 
+void LockBox::set_face() {
+    // Start with instructions
+    std::cout << "To start facial recognition scan, first make sure you are in view and looking at your webcam.\n";
+    std::cout << "The scanning process should take about 5-10 seconds, When you are ready press any key to continue" << std::endl;
+    cv::waitKey(20000);
+    
+    // Open the camera object and make sure it is open
+    cv::VideoCapture camera(0);
+    if (!camera.isOpen()) {
+        std::cout << "Error: unable to access webcam" << std::endl;
+        exit(1);
+    }
+
+    // Create the folder to store these pictures
+    std::string dir = "./LockBox/data" + file_name
+    if (!fs::exists(dir))
+        fs::create_directories(dir);
+
+    // Create a cascadeclassifier to detect faces. This will be used to make sure there is a face in each from from the camera
+    cv::CascadeClassifier fd;
+    // detectMultiScale, the method that will be used to detect faces, requires a vector to store the faces in
+    std::vector<cv::Rect> faces;
+    const std::string name = "e_" + file_name + "_";
+    int count = 1;
+    while (count < 6) {
+        // Create an image type and save the next frame from the camera to that variable
+        cv::Mat frame;
+        camera >> frame;
+        // Call multiscale to check if there is a face in the frame
+        fd.detectMultiScale(frame, faces, 1.2, 3);
+        // If there is a face it will add it to the faces vector
+        if (!faces.empty()) {
+            // Save the file in the folder we just created
+            cv::imWrite(name + std::to_string(count++) + ".png", frame);
+            // Clear faces and wait 1 second to take next frame
+            faces.clear();
+            cv::waitKey(1000);
+        } else {
+            // If there wasn't a face in the frame, output a warning message and try again
+            std::cout << "Warning: please make sure you are in view of and looking at your webcam" << std::endl;
+            cv::waitKey(1000);
+        }
+    }
+
+}
+
+
 void LockBox::encrypt() {
     // Open the 3 files we will need, the file to be encrypted, the file to write that to,
     // and the pwd file in the data folder to store the hashed password and file name associated to it
