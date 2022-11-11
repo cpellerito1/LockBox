@@ -11,6 +11,7 @@ int main(int argc, char *argv[]) {
     bool path = false;
     std::string password;
     bool pwd = false;
+    bool facial = false;
     int setting = -1;
     for (int i = 0; i < argc; i++) {
         std::string current(argv[i]);
@@ -22,6 +23,8 @@ int main(int argc, char *argv[]) {
             password = std::string(argv[i + 1]);
         } else if (current == "-e")
             setting = 1;
+        else if (current == '-r')
+            facial = true;
         else if (current == "-d")
             setting = 2;
         else if (current == "--help")
@@ -29,8 +32,9 @@ int main(int argc, char *argv[]) {
         
     }
     // Error checking
+    // Use bool value for errors so it can print out multiple before exiting
     bool errors = false;
-    if (path == false) {
+    if (!path) {
         std::cout << "Error: please include the path to the file" << std::endl;
         errors = true;
     }
@@ -38,26 +42,31 @@ int main(int argc, char *argv[]) {
         std::cout << "Error: please include a setting, -e for encrypt or -d for decrypt" << std::endl;
         errors = true;
     }
-    if (pwd == false) {
+    if (!pwd) {
         std::cout << "Error: please include a password to encrypt/decrypt file" << std::endl;
         errors = true;
     }
+    
     if (errors == true)
         return -1;
-
+    
     // Initialize LockBox class
     LockBox lb(file_path, password);
 
     // Run the encryption/decryption
-
-
-
     switch (setting) {
         case 1:
+            if (facial)
+                set_face();
+
             lb.encrypt();
             break;
         case 2:
+            if (facial && !check_face())
+                return 1;
+
             lb.decrypt();
+            break;
      }
 
     return 0;

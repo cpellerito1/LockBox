@@ -77,7 +77,7 @@ void LockBox::set_face() {
     }
 
     // Create the folder to store these pictures
-    std::string dir = "./LockBox/data" + file_name
+    std::string dir = "./LockBox/data/" + "e_" + file_name;
     if (!fs::exists(dir))
         fs::create_directories(dir);
 
@@ -113,6 +113,37 @@ void LockBox::set_face() {
 }
 
 
+bool check_face() {
+    // Open the password file
+    std::fstream pwd("./LockBox/data/pwd.txt", std::fstream::in);
+    // First check if this file was encrypted using facial recognition
+    std::string line;
+    while (getline(pwd, line)) {
+        size_t first = line.find(':');
+        size_t last = line.find_last_of(':');
+        if (line.substr(0, index + 1) == file_name) {
+            // The file exists now check if it was locked using facial too
+            exists = true;
+            if (first == last || line.substr(last+1) != face) {
+                std::cout << "Error: File was not locked using facial recognition" << std::endl;
+                return false;
+            }
+        }
+    }
+
+    // Now start the facial recognition by loading the pictures into a vector using a directory iterator
+    std::vector<cv::Mat> training;
+    const fs::path pictures("./LockBox/data/" + file_name);
+    for (const auto &directory : fs::directory_iterator(pictures)) {
+        std::string path = directory.path();
+        size_t index = path.find_last_of('/');
+        training.push_back(cv::imread(path.substr(index + 1), 0));
+    }
+
+
+}
+
+
 void LockBox::encrypt() {
     // Open the 3 files we will need, the file to be encrypted, the file to write that to,
     // and the pwd file in the data folder to store the hashed password and file name associated to it
@@ -137,7 +168,7 @@ void LockBox::encrypt() {
     pwd << "e_" + file_name << ":" << hashed(password);
     // Append facial to the end of the entry if facial recognition is also set for this file
     if (facial_flag) {
-        pwd << ":facial\n";
+        pwd << ":face\n";
     } else {
         pwd << '\n';
     }
@@ -159,8 +190,6 @@ void LockBox::decrypt() {
     bool exists = false;
     // String to hold the current line of the file
     std::string line;
-    // String for storing the line if it exists for future reference
-    std::string pwd_line;
     while (getline(pwd, line)) {
         if (line.substr(file_name.size() + 1) == std::to_string(hashed(password))) {
             exists = true;
@@ -176,15 +205,6 @@ void LockBox::decrypt() {
     }
     // Close pwd
     pwd.close();
-
-    // After verifying the password, check if facial is set for this file
-    size_t index = pwd_line.find_last_of(':');
-    if (pwd_line.substr(index) == "face") {
-        if (!check_face()) {
-            std::cout << "Error: Facial Recognition failed!" << std::endl;
-            exit(1);
-        }
-    }
 
     // Now re-open it to overwrite all of the contents to remove the file-password entry
     std::fstream pwd1("./LockBox/data/pwd.txt", std::fstream::out);
