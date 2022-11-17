@@ -63,47 +63,46 @@ std::string LockBox::get_name() {
 }
 
 
+void LockBox::set_face_flag(bool value) {
+    facial_flag = value;
+}
+
+
 void LockBox::set_face() {
     // Start with instructions
     std::cout << "To start facial recognition scan, first make sure you are in view and looking at your webcam.\n";
-    std::cout << "The scanning process should take about 5-10 seconds, When you are ready press any key to continue" << std::endl;
-    cv::waitKey(20000);
+    std::cout << "The scanning process should take about 5-10 seconds, When you are ready press enter to continue" << std::endl;
+    std::cin.get();
+    std::fflush(stdin);
     
     // Open the camera object and make sure it is open
     cv::VideoCapture camera(0);
-    if (!camera.isOpen()) {
+    if (!camera.isOpened()) {
         std::cout << "Error: unable to access webcam" << std::endl;
         exit(1);
     }
 
-    // Create the folder to store these pictures
-    std::string dir = "./LockBox/data/" + "e_" + file_name;
+    // Create a directory to hold the images based on the name of the file being encrypted to avoid duplicates
+    std::string dir("./LockBox/data/e_" + file_name);
     if (!fs::exists(dir))
         fs::create_directories(dir);
 
-    // Create a cascadeclassifier to detect faces. This will be used to make sure there is a face in each from from the camera
-    cv::CascadeClassifier fd;
-    // detectMultiScale, the method that will be used to detect faces, requires a vector to store the faces in
-    std::vector<cv::Rect> faces;
-    const std::string name = "e_" + file_name + "_";
+    const std::string name = "/e_" + file_name.substr(0, file_name.find_first_of('.')) + "_";
     int count = 1;
+    cv::Mat frame, frame_gray;
     while (count < 6) {
-        // Create an image type and save the next frame from the camera to that variable
-        cv::Mat frame;
+        // Save frame from the camera
         camera >> frame;
-        // Call multiscale to check if there is a face in the frame
-        fd.detectMultiScale(frame, faces, 1.2, 3);
         // If there is a face it will add it to the faces vector
-        if (!faces.empty()) {
+        if (check_face(frame)) {
+            // Convert file to grayscale for storage
+            cv::cvtColor(frame, frame_gray, 6);
             // Save the file in the folder we just created
-            cv::imWrite(name + std::to_string(count++) + ".png", frame);
-            // Clear faces and wait 1 second to take next frame
-            faces.clear();
-            cv::waitKey(1000);
+            cv::imwrite(dir + name + std::to_string(count++) + ".pgm", frame_gray);
         } else {
-            // If there wasn't a face in the frame, output a warning message and try again
+            // If there wasn't a face in the rame, output a warning message and try again
             std::cout << "Warning: please make sure you are in view of and looking at your webcam" << std::endl;
-            cv::waitKey(1000);
+            cv::waitKey(1);
         }
     }
 
@@ -113,38 +112,88 @@ void LockBox::set_face() {
 }
 
 
-bool check_face() {
+void LockBox::predict_face() {
     // Open the password file
     std::fstream pwd("./LockBox/data/pwd.txt", std::fstream::in);
-    // First check if this file was encrypted using facial recognition
+    bool exists;
+    // First check if this file was locked using facial recognition
     std::string line;
     while (getline(pwd, line)) {
         size_t first = line.find(':');
         size_t last = line.find_last_of(':');
-        if (line.substr(0, index + 1) == file_name) {
+        if (line.substr(0, first + 1) == file_name) {
             // The file exists now check if it was locked using facial too
             exists = true;
-            if (first == last || line.substr(last+1) != face) {
+            if (first == last || line.substr(last+1) != "face") {
                 std::cout << "Error: File was not locked using facial recognition" << std::endl;
-                return false;
+                exit(1);
             }
         }
     }
 
     // Now start the facial recognition by loading the pictures into a vector using a directory iterator
     std::vector<cv::Mat> training;
-    const fs::path pictures("./LockBox/data/" + file_name);
+    std::vector<int> labels;
+    const fs::path pictures("./LockBox/data/" + file_name );
     for (const auto &directory : fs::directory_iterator(pictures)) {
-        std::string path = directory.path();
-        size_t index = path.find_last_of('/');
-        training.push_back(cv::imread(path.substr(index + 1), 0));
+        training.push_back(cv::imread(directory.path(), 0));
+        labels.push_back(1);
+    }
+    
+
+    // Take the picture to verify
+    cv::VideoCapture camera(0);
+    cv::Mat image;
+    while (1) {
+        camera >> image;
+        if (!check_face(image)) {
+            std::cout << "Warning: please make sure you are in view of and looking at your webcam" << std::endl;
+            cv::waitKey(1);
+        } else
+            break;
     }
 
+    // After verifying the image, write it to a temp file and re-read it in, then remove the temp file
+    // The image needs to be normalized and this is the easiest way of doing it
+    const std::string temp("temp123456789.pgm");
+    cv::cvtColor(image, image, 6);
+    cv::imwrite(temp, image);
+    image = cv::imread(temp, 0);
+    fs::remove(temp);
 
+
+    // Now predict the label of that image
+    cv::Ptr<cv::face::EigenFaceRecognizer> model = cv::face::EigenFaceRecognizer::create();
+    model->train(training, labels);
+    int predict = model->predict(image);
+
+    if (predict != 1) {
+        std::cout << "Error: Facial recognition failed" << std::endl;
+        exit(1);
+    }
+}
+
+
+bool LockBox::check_face(cv::Mat &image) {
+     // Create a cascadeclassifier to detect faces. This will be used to make sure there is a face in each from from the camera
+    cv::CascadeClassifier fd;
+    // Load the haarcascade for detecting faces
+    fd.load("./haarcascades/haarcascade_frontalface_default.xml");
+    // detectMultiScale, the method that will be used to detect faces, requires a vector to store the faces in
+    std::vector<cv::Rect> faces;
+    // Call multiscale to detect if there is a face in the frame
+    fd.detectMultiScale(image, faces, 1.2, 3);
+    if (!faces.empty())
+        return true;
+    else
+        return false;
 }
 
 
 void LockBox::encrypt() {
+    // First check if this was locked using facial recognition as well
+    if (facial_flag)
+        set_face();
     // Open the 3 files we will need, the file to be encrypted, the file to write that to,
     // and the pwd file in the data folder to store the hashed password and file name associated to it
     std::fstream fin(file_path, std::fstream::in), fout("./LockBox/files/e_" + file_name, std::fstream::out), 
@@ -180,22 +229,39 @@ void LockBox::encrypt() {
 
 
 void LockBox::decrypt() {
-    // First verify that the file-password matches an entry in the data file
+    // First check if the facial flag is set
+    if (facial_flag)
+        predict_face();
+    // Verify that the file-password matches an entry in the data file
     std::fstream pwd("./LockBox/data/pwd.txt", std::fstream::in);
     // Vector to store all the lines of the file to re-write them to the password to remove current entry
     std::vector<std::string> data_file;
     // Hash function to get the hashed version of the password which is what is actaully stored
-    std::hash<std::string> hashed;
+    std::hash<std::string> hash;
     // Flag for if the file-password exists
     bool exists = false;
     // String to hold the current line of the file
-    std::string line;
+    std::string line, hashed_password, locked_file_name;
     while (getline(pwd, line)) {
-        if (line.substr(file_name.size() + 1) == std::to_string(hashed(password))) {
-            exists = true;
-            pwd_line = line;
-            continue;
+        // Get the name of the locked file on this line
+        locked_file_name = line.substr(0, file_name.size());
+        if (facial_flag) {
+            // Get the hashed password on this line
+            hashed_password = line.substr(file_name.size() + 1, line.find_last_of(':') - file_name.size() - 1);
+            // Check if both match the password and the file name
+            if (hashed_password == std::to_string(hash(password)) && locked_file_name == file_name) {
+                exists = true;
+                continue;
+            }
+        } else {
+            // If the facial_flag is false, the password can be taken from file_name.size() to the end of the line
+            hashed_password = line.substr(file_name.size() + 1);
+            if (hashed_password == std::to_string(hash(password)) && locked_file_name == file_name) {
+                exists = true;
+                continue;
+            }
         }
+        // If the line didn't match, push it into a vector to be added back to the file later
         data_file.push_back(line);
     }
 

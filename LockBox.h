@@ -10,6 +10,7 @@
 #include <functional>
 #include <numeric>
 #include <opencv4/opencv2/opencv.hpp>
+#include <opencv4/opencv2/face.hpp>
 
 
 namespace fs = std::filesystem;
@@ -22,16 +23,18 @@ class LockBox {
         int key;
         bool facial_flag;
         void set_password(const std::string&);
-        void set_file(const std::string &);
+        void set_file(const std::string&);
         std::string get_name(void);
         void initialize(void);
+        void set_face();
+        void predict_face();
+        bool check_face(cv::Mat&);
     
     public:
         LockBox(const std::string&, const std::string&);
         void encrypt();
         void decrypt();
-        void set_face();
-        bool check_face();
+        void set_face_flag(bool);
         static void show_help();
 };
 

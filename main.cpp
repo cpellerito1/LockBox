@@ -23,7 +23,7 @@ int main(int argc, char *argv[]) {
             password = std::string(argv[i + 1]);
         } else if (current == "-e")
             setting = 1;
-        else if (current == '-r')
+        else if (current == "-r")
             facial = true;
         else if (current == "-d")
             setting = 2;
@@ -52,19 +52,14 @@ int main(int argc, char *argv[]) {
     
     // Initialize LockBox class
     LockBox lb(file_path, password);
+    lb.set_face_flag(facial);
 
     // Run the encryption/decryption
     switch (setting) {
         case 1:
-            if (facial)
-                set_face();
-
             lb.encrypt();
             break;
         case 2:
-            if (facial && !check_face())
-                return 1;
-
             lb.decrypt();
             break;
      }
